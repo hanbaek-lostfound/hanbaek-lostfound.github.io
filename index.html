@@ -583,7 +583,9 @@ async function renderMe(app){
       <div class="row-between"><div><div class="hint">다른 학생에게 보이는 이름</div><div style="font-weight:700;font-size:17px">${esc(S.me.nickname)}</div></div>
         <div class="points"><strong>${S.me.points}</strong><span class="hint">포인트</span></div></div>
       <div class="hint">학번 ${esc(S.me.studentId)} · ${esc(S.me.name)} — 이 정보는 나와 관리자만 볼 수 있어요. 글과 댓글은 모두 익명으로 올라가요.</div>
-      ${store.mode==="live"?`<button class="btn small ghost" data-act="logout">로그아웃</button>`:`<button class="btn small ghost" data-act="reset">체험 데이터 처음으로 되돌리기</button>`}
+      ${store.mode==="live"?`<div class="hint">내 계정 ID (관리자 지정용)</div><div class="row-between" style="gap:8px"><code id="myUid" style="font-family:var(--f-mono);font-size:12px;overflow-wrap:anywhere;min-width:0;user-select:all">${esc(S.me.uid)}</code><button class="btn small" data-act="copy-uid">복사</button></div>
+      <div class="hint">관리자 권한: <b>${S.me.isAdmin?"있음":"없음"}</b></div>
+      <button class="btn small ghost" data-act="logout">로그아웃</button>`:`<button class="btn small ghost" data-act="reset">체험 데이터 처음으로 되돌리기</button>`}
     </div>
     <h2 class="sec-title">1:1 대화</h2>
     <div class="mini">${chats.length?chats.map(c=>`<button data-act="chat" data-id="${esc(c.id)}"><span><b>${esc(c.postTitle)}</b><br><span class="hint">${esc(c.last||"아직 메시지가 없어요")}</span></span><span class="hint">${c.role==="owner"?"내 글":"내가 연락"}</span></button>`).join(""):`<div class="empty">글 상세 화면의 <b style="display:inline;font-size:inherit;font-family:inherit">1:1 대화</b> 버튼으로 시작할 수 있어요.</div>`}</div>
@@ -773,6 +775,7 @@ document.addEventListener("click",async e=>{
     else if(a==="close-report"){ await store.adminCloseReport(id); render(); }
     else if(a==="reward-ok"||a==="reward-no"){ await store.adminDecideReward(id,a==="reward-ok"); toast(a==="reward-ok"?"포인트를 지급했어요":"반려했어요"); render(); }
     else if(a==="reset"){ confirmSheet("체험 데이터를 되돌릴까요?","이 기기에 저장된 체험용 글과 대화가 처음 상태로 돌아가요.","되돌리기",async()=>{ await store.resetDemo(); S.me=await store.me(); S.tab="found"; render(); }); }
+    else if(a==="copy-uid"){ const t=$("#myUid").textContent; try{ await navigator.clipboard.writeText(t); toast("복사했어요"); }catch{ const r=document.createRange(); r.selectNodeContents($("#myUid")); const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r); toast("길게 눌러 복사해 주세요"); } }
     else if(a==="logout"){ await store.signOut(); location.reload(); }
   }catch(err){ showError(err); }
 });
