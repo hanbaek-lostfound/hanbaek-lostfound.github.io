@@ -1,0 +1,14 @@
+{
+  "name": "분실물 알리미",
+  "short_name": "분실물",
+  "description": "학교 분실물을 사진 한 장으로 찾아요",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef1f4",
+  "theme_color": "#14202b",
+  "lang": "ko",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
