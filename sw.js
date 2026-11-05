@@ -1,6 +1,6 @@
 // 한백 분실물 서비스워커 — 앱 화면은 캐시해서 빨리 열고, 글·사진 데이터는 항상 서버에서
 // 앱 파일을 고치면 아래 버전 숫자를 올리세요 (lf-v2 → lf-v3 ...)
-const CACHE = "lf-v4";
+const CACHE = "lf-v5";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png", "./favicon-32.png"];
 
 self.addEventListener("install", e => {

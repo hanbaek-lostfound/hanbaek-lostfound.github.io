@@ -632,7 +632,8 @@ const icon = (svg, cls) => svg.replace("<svg ", `<svg class="${cls}" `);
 const MARK_SVG = `<svg viewBox="-150 -90 300 180" aria-hidden="true"><path d="M-118 -78 H70 L134 0 L70 78 H-118 A22 22 0 0 1 -140 56 V-56 A22 22 0 0 1 -118 -78 Z" fill="#fff"/><circle cx="80" cy="0" r="16" fill="#4fa845"/><path d="M-86 2 L-48 38 L22 -36" fill="none" stroke="#1d4fa0" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const markHTML = (size, r) => `<div class="mark" style="width:${size}px;height:${size}px;border-radius:${r}px">${MARK_SVG}</div>`;
 const AV_COLORS = ["#1d4fa0","#2f8a3a","#7c4dff","#e5484d","#f08c00","#0f9fb5","#d6409f","#5b6470"];
-function avatarHTML(nick, av=0, size=32){
+function avatarHTML(nick, av=0, size=32, photo=""){
+  if(photo) return `<span class="av" style="width:${size}px;height:${size}px;background:var(--fill-2);overflow:hidden" aria-hidden="true"><img src="${esc(photo)}" alt="" style="width:100%;height:100%;object-fit:cover" onerror="this.remove()"></span>`;
   const words=String(nick||"익명").trim().split(/\s+/); const ch=(words[words.length-1]||"?").slice(0,1);
   return `<span class="av" style="width:${size}px;height:${size}px;font-size:${Math.round(size*0.42)}px;background:${AV_COLORS[(+av||0)%AV_COLORS.length]}" aria-hidden="true">${esc(ch)}</span>`;
 }
@@ -654,14 +655,29 @@ const prefs = { get showNick(){ return ls.get("lf-shownick",false); }, set showN
 const CATS = ["전자기기","의류","학용품","지갑·카드","물병·텀블러","가방","기타"];
 const COLORS = [["검정","#1d1f22"],["흰색","#f7f7f7"],["회색","#9aa0a6"],["남색","#23345f"],["파랑","#2f6fe0"],["빨강","#d33b3b"],["초록","#2f9e5b"],["노랑","#f2c94c"],["갈색","#8a5a36"],["분홍","#f29bb8"],["기타","conic-gradient(#d33b3b,#f2c94c,#2f9e5b,#2f6fe0,#d33b3b)"]];
 const PLACES = ["본관 1층","본관 2층","본관 3층","본관 4층","신관","체육관","급식실","도서관","운동장","매점 앞","기타"];
-const STORAGES = ["행정실 분실물함","교무실","내가 보관 중"];
+/* 보관 장소: 고른 곳에 따라 필요한 것만 더 물어봄 */
+const STORAGES = ["행정실 분실물함","선생님께 맡김","내가 갖고 있어요","그 자리에 두었어요"];
+const STORAGE_INFO = {
+  "행정실 분실물함":{short:"행정실",need:false,ask:"",ph:"",note:"가장 확실해요. 주인이 쉬는 시간에 행정실에서 바로 찾아갈 수 있어요.",guide:"행정실 분실물함에 있어요. 행정실에 가서 이 글의 번호를 말하면 찾기 쉬워요."},
+  "선생님께 맡김":{short:"선생님께 맡김",need:true,ask:"어느 선생님께 맡겼나요?",ph:"예: 1학년 교무실 담임 선생님",note:"교무실이 여러 곳이라, 어느 교무실·어느 선생님인지 적어야 주인이 헤매지 않아요.",guide:"적힌 선생님께 맡겨져 있어요. 교무실에 가서 찾으러 왔다고 말씀드리면 돼요."},
+  "내가 갖고 있어요":{short:"올린 사람이 보관",need:false,ask:"",ph:"",note:"주인이 ‘제 물건 같아요’로 연락하면, 대화로 시간과 장소를 정해 직접 돌려줘요. 하루가 지나도 연락이 없으면 행정실에 맡겨 주세요.",guide:"올린 학생이 갖고 있어요. ‘제 물건 같아요’를 눌러 대화로 받을 시간과 장소를 정하세요."},
+  "그 자리에 두었어요":{short:"주운 자리",need:false,ask:"놓아둔 곳을 더 자세히",ph:"예: 체육관 2층 관람석 맨 앞줄 의자 위",note:"우산·체육복처럼 옮기기 애매한 물건일 때만 골라 주세요. 다른 사람이 가져갈 수 있어요.",guide:"주운 자리에 그대로 있어요. 위치를 보고 직접 찾아가 보세요."}
+};
+const storageLabel = (s,d) => { const i=STORAGE_INFO[s]; if(!i) return s==="교무실"?("교무실"+(d?" · "+d:"")):(s==="내가 보관 중"?"올린 사람이 보관":(s||"")); return i.short+(d?" · "+d:""); };
+const storageGuide = s => STORAGE_INFO[s]?.guide || (s==="교무실"?STORAGE_INFO["선생님께 맡김"].guide:s==="내가 보관 중"?STORAGE_INFO["내가 갖고 있어요"].guide:"");
+function storageFieldHTML(st, detail){
+  const i=STORAGE_INFO[st]||STORAGE_INFO[STORAGES[0]];
+  return `<div class="chips-wrap">${STORAGES.map(s=>`<button type="button" class="mini-chip press" data-st="${s}" aria-pressed="${st===s}">${s}</button>`).join("")}</div>
+    ${i.ask?`<input class="input" id="stDetail" maxlength="30" autocomplete="off" placeholder="${esc(i.ph)}" value="${esc(detail||"")}" aria-label="${esc(i.ask)}">`:""}
+    <p class="note">${esc(i.note)}</p>`;
+}
 const QUICK_PLACES = ["본관","신관","체육관","급식실","도서관","운동장","매점"];
 const FLOORS = ["B1","1층","2층","3층","4층","5층","야외"];
 const dayStr = n => { const d=new Date(); d.setDate(d.getDate()-n); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
 const daysSince = t => Math.max(0, Math.floor((Date.now()-t)/86400e3));
 /* 지도: 학교 위치 (주소로 한 번 찾아서 기기에 저장, 못 찾으면 동탄2 중심) */
 const SCHOOL = { name:"한백고등학교", address:"경기 화성시 동탄순환대로26길 21", fallback:[37.2003, 127.0976], zoom:18 };
-const APP_VERSION = "1.3.0";
+const APP_VERSION = "1.4.0";
 const MAKER = "김현서";
 const KEYWORDS = {
   "전자기기":["이어폰","에어팟","버즈","충전기","케이블","보조배터리","폰","휴대폰","핸드폰","계산기","갤럭시","아이폰","워치","헤드폰","태블릿","아이패드"],
@@ -715,6 +731,16 @@ async function compressImage(file, max=1080, q=0.74){
   return { blob, url: URL.createObjectURL(blob), dataUrl: DEMO ? c.toDataURL("image/jpeg",0.6) : "" };
 }
 
+async function squareImage(file, size=320, q=0.8){
+  let src; try{ src=await createImageBitmap(file,{imageOrientation:"from-image"}); }
+  catch{ const url=URL.createObjectURL(file); src=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=url;}); }
+  const m=Math.min(src.width,src.height); if(!m) throw new Error("bad image");
+  const c=document.createElement("canvas"); c.width=c.height=size; const g=c.getContext("2d");
+  g.fillStyle="#fff"; g.fillRect(0,0,size,size); g.drawImage(src,(src.width-m)/2,(src.height-m)/2,m,m,0,0,size,size);
+  const blob=await new Promise(r=>c.toBlob(r,"image/jpeg",q)); if(!blob) throw new Error("bad image");
+  return { blob, url: URL.createObjectURL(blob), dataUrl: DEMO ? c.toDataURL("image/jpeg",0.7) : "" };
+}
+
 /* ---------- AI 보조: 키워드 추정 + 비슷한 글 점수 ---------- */
 function guessTags(text){
   const t = text||""; let cat=null, color=null;
@@ -759,7 +785,7 @@ class DemoStore{
     const P=(o)=>({hidden:false,status:"open",commentCount:0,ai:guessTags(o.title+" "+o.desc),photo:"",...o});
     const posts=[
       P({id:"p1",type:"found",owner:"u_b",title:"흰색 무선이어폰 케이스",cat:"전자기기",color:"흰색",place:"본관 3층",placeDetail:"1-3반 앞 사물함 위",when:today(),storage:"행정실 분실물함",desc:"케이스만 있고 안에 이어폰 한쪽이 들어 있어요.",tag:"F-2318",createdAt:now-2*H,commentCount:2}),
-      P({id:"p2",type:"found",owner:"u_c",title:"남색 체육복 상의",cat:"의류",color:"남색",place:"체육관",placeDetail:"2층 관람석",when:today(),storage:"교무실",desc:"사이즈 L, 이름표 없음.",tag:"F-4471",createdAt:now-5*H}),
+      P({id:"p2",type:"found",owner:"u_c",title:"남색 체육복 상의",cat:"의류",color:"남색",place:"체육관",placeDetail:"2층 관람석",when:today(),storage:"교무실",storageDetail:"1학년 교무실 체육 선생님",desc:"사이즈 L, 이름표 없음.",tag:"F-4471",createdAt:now-5*H}),
       P({id:"p6",type:"found",owner:"u_a",title:"검정 필통",cat:"학용품",color:"검정",place:"도서관",placeDetail:"1층 창가 자리",when:today(),storage:"행정실 분실물함",desc:"지퍼에 키링이 달려 있어요.",tag:"F-6620",createdAt:now-8*H}),
       P({id:"p7",type:"found",owner:"u_c",title:"분홍 텀블러",cat:"물병·텀블러",color:"분홍",place:"급식실",placeDetail:"출구 쪽 정수기 옆",when:today(),storage:"행정실 분실물함",desc:"",tag:"F-7704",createdAt:now-20*H}),
       P({id:"p3",type:"found",owner:"u_b",title:"학생증",cat:"지갑·카드",color:"기타",place:"급식실",placeDetail:"식판 반납대",when:today(),storage:"행정실 분실물함",desc:"본인 확인 후 돌려드려요.",tag:"F-1902",createdAt:now-26*H,status:"done"}),
@@ -770,10 +796,12 @@ class DemoStore{
     return {users,posts,comments,chats:{},messages:{},reports:[],rewards:[],audit:[],currentUid:"u_a"};
   }
   pub(p){ const {owner,...rest}=p; return {...rest, mine: owner===this.uid}; }
-  async me(){ const u=this.db.users[this.uid]; return {uid:this.uid,nickname:u.nickname,avatar:u.avatar||0,points:u.points,isAdmin:u.isAdmin,studentId:u.priv.studentId,name:u.priv.name,needsProfile:false}; }
-  async updateProfile(nickname,avatar){ nickname=nickname.trim(); const k=nickKey(nickname);
+  async me(){ const u=this.db.users[this.uid]; return {uid:this.uid,nickname:u.nickname,avatar:u.avatar||0,photo:u.photo||"",points:u.points,isAdmin:u.isAdmin,studentId:u.priv.studentId,name:u.priv.name,needsProfile:false}; }
+  async updateProfile(nickname,avatar,photo){ nickname=nickname.trim(); const k=nickKey(nickname);
     if(Object.entries(this.db.users).some(([id,u])=>id!==this.uid && nickKey(u.nickname)===k)) throw new Error("이미 누가 쓰고 있는 별명이에요");
-    const u=this.db.users[this.uid]; u.nickname=nickname; u.avatar=avatar; this.save(); }
+    const u=this.db.users[this.uid]; u.nickname=nickname; u.avatar=avatar;
+    if(photo===null) u.photo=""; else if(photo) u.photo=photo.dataUrl; this.save(); return u.photo||""; }
+  async updateStorage(id,storage,storageDetail){ const p=this.db.posts.find(p=>p.id===id); if(p.owner!==this.uid) throw new Error("작성자만 바꿀 수 있어요"); p.storage=storage; p.storageDetail=storageDetail; this.save(); }
   demoUsers(){ return Object.entries(this.db.users).map(([id,u])=>({id,label:u.isAdmin?"관리자 (선생님)":`${u.priv.studentId} ${u.priv.name}`})); }
   async switchUser(id){ this.uid=id; this.save(); }
   async resetDemo(){ this.db=this.seed(); this.uid="u_a"; this.save(); }
@@ -787,7 +815,7 @@ class DemoStore{
   async setStatus(id,status){ const p=this.db.posts.find(p=>p.id===id); if(p.owner!==this.uid && !this.db.users[this.uid].isAdmin) throw new Error("작성자만 바꿀 수 있어요"); p.status=status; this.save(); }
   async deletePost(id){ const p=this.db.posts.find(p=>p.id===id); if(p.owner!==this.uid && !this.db.users[this.uid].isAdmin) throw new Error("작성자만 지울 수 있어요"); this.db.posts=this.db.posts.filter(x=>x.id!==id); this.save(); }
   async listComments(pid){ return (this.db.comments[pid]||[]).filter(c=>!c.hidden).map(({uid,...c})=>({...c,mine:uid===this.uid})); }
-  async addComment(pid,text,show){ const p=this.db.posts.find(p=>p.id===pid); const u=this.db.users[this.uid]; (this.db.comments[pid] ||= []).push({id:rid(),text,isOwner:p.owner===this.uid,uid:this.uid,at:Date.now(),...(show?{nick:u.nickname,av:u.avatar||0}:{})}); p.commentCount++; this.save(); }
+  async addComment(pid,text,show){ const p=this.db.posts.find(p=>p.id===pid); const u=this.db.users[this.uid]; (this.db.comments[pid] ||= []).push({id:rid(),text,isOwner:p.owner===this.uid,uid:this.uid,at:Date.now(),...(show?{nick:u.nickname,av:u.avatar||0,...(u.photo?{ph:u.photo}:{})}:{})}); p.commentCount++; this.save(); }
   chatRole(c){ const p=this.db.posts.find(p=>p.id===c.postId); return c.starter===this.uid?"starter":(p?.owner===this.uid?"owner":(this.db.users[this.uid].isAdmin?"admin":null)); }
   async openChat(pid){
     const p=this.db.posts.find(p=>p.id===pid); if(p.owner===this.uid) throw new Error("내 글에는 대화를 열 수 없어요");
@@ -803,7 +831,7 @@ class DemoStore{
   async requestReward(pid, chatId){ const p=this.db.posts.find(p=>p.id===pid); if(p.owner!==this.uid) throw new Error("작성자만 요청할 수 있어요");
     if(this.db.rewards.some(r=>r.postId===pid)) throw new Error("이미 감사 포인트를 요청했어요");
     this.db.rewards.push({id:rid(),postId:pid,chatId,status:"pending",createdAt:Date.now()}); p.status="done"; this.save(); }
-  async leaderboard(){ return Object.entries(this.db.users).filter(([,u])=>!u.isAdmin).map(([id,u])=>({nickname:u.nickname,avatar:u.avatar||0,points:u.points,you:id===this.uid})).sort((a,b)=>b.points-a.points).slice(0,10); }
+  async leaderboard(){ return Object.entries(this.db.users).filter(([,u])=>!u.isAdmin).map(([id,u])=>({nickname:u.nickname,avatar:u.avatar||0,photo:u.photo||"",points:u.points,you:id===this.uid})).sort((a,b)=>b.points-a.points).slice(0,10); }
   async myPosts(){ return this.db.posts.filter(p=>p.owner===this.uid).sort((a,b)=>b.createdAt-a.createdAt).map(p=>this.pub(p)); }
   async report(pid,reason){ this.db.reports.push({id:rid(),postId:pid,reason,status:"open",createdAt:Date.now()}); this.save(); }
   assertAdmin(){ if(!this.db.users[this.uid].isAdmin) throw new Error("관리자만 할 수 있어요"); }
@@ -855,7 +883,7 @@ class FireStore{
     const [pub,priv,adm]=await Promise.all([getDoc(this.d("users",this.uid)),getDoc(this.d("private",this.uid)),getDoc(this.d("admins",this.uid)).catch(()=>null)]);
     if(!priv.exists()) return {uid:this.uid,needsProfile:true};
     await this.loadOwnerIds();
-    return {uid:this.uid,nickname:pub.data()?.nickname||"익명",avatar:pub.data()?.avatar||0,points:pub.data()?.points||0,isAdmin:!!adm?.exists(),studentId:priv.data().studentId,name:priv.data().name,needsProfile:false};
+    return {uid:this.uid,nickname:pub.data()?.nickname||"익명",avatar:pub.data()?.avatar||0,photo:pub.data()?.photo||"",points:pub.data()?.points||0,isAdmin:!!adm?.exists(),studentId:priv.data().studentId,name:priv.data().name,needsProfile:false};
   }
   async saveProfile(studentId,name){
     const b=this.f.writeBatch(this.db);
@@ -866,7 +894,9 @@ class FireStore{
     // 별명 중복 방지 표시 (실패해도 진행)
     await this.f.setDoc(this.d("nicknames",nickKey(nick)),{uid:this.uid}).catch(()=>{});
   }
-  async updateProfile(nickname,avatar){
+  async updateProfile(nickname,avatar,photo){
+    // photo: 새 사진(blob) | null(지우기) | undefined(그대로)
+    let photoUrl; if(photo===null) photoUrl=""; else if(photo) photoUrl=await this.uploadPhoto(photo.blob);
     nickname=nickname.trim(); const cur=(await this.f.getDoc(this.d("users",this.uid))).data()||{};
     const b=this.f.writeBatch(this.db), k=nickKey(nickname), oldK=cur.nickname?nickKey(cur.nickname):null;
     if(k!==oldK){
@@ -875,9 +905,11 @@ class FireStore{
       if(!taken?.exists()) b.set(this.d("nicknames",k),{uid:this.uid});
       if(oldK){ const old=await this.f.getDoc(this.d("nicknames",oldK)).catch(()=>null); if(old?.exists() && old.data().uid===this.uid) b.delete(this.d("nicknames",oldK)); }
     }
-    b.update(this.d("users",this.uid),{nickname,avatar:+avatar||0});
+    b.update(this.d("users",this.uid),{nickname,avatar:+avatar||0,...(photoUrl!==undefined?{photo:photoUrl}:{})});
     try{ await b.commit(); }catch(e){ if(/permission-denied/.test(e.code||"")) throw new Error("이미 누가 쓰고 있거나 쓸 수 없는 별명이에요"); throw e; }
+    return photoUrl!==undefined?photoUrl:(cur.photo||"");
   }
+  async updateStorage(id,storage,storageDetail){ await this.f.updateDoc(this.d("posts",id),{storage,storageDetail}); }
   async loadOwnerIds(){
     if(this.ownerIds) return this.ownerIds;
     const {query,where,getDocs}=this.f;
@@ -938,7 +970,7 @@ class FireStore{
   async addComment(pid,text,show){
     const isOwner = (await this.loadOwnerIds()).has(pid);
     const cid=this.f.doc(this.c("posts",pid,"comments")).id; const b=this.f.writeBatch(this.db);
-    b.set(this.d("posts",pid,"comments",cid),{text,isOwner,hidden:false,at:this.f.serverTimestamp(),...(show&&S.me?{nick:S.me.nickname,av:+S.me.avatar||0}:{})});
+    b.set(this.d("posts",pid,"comments",cid),{text,isOwner,hidden:false,at:this.f.serverTimestamp(),...(show&&S.me?{nick:S.me.nickname,av:+S.me.avatar||0,...(S.me.photo?{ph:S.me.photo}:{})}:{})});
     b.set(this.d("commentAuthors",pid+"_"+cid),{uid:this.uid,postId:pid});
     b.update(this.d("posts",pid),{commentCount:this.f.increment(1)});
     await b.commit();
@@ -1216,7 +1248,7 @@ let openDetail=null;
 function refreshOpenDetail(){
   if(!openDetail || openDetail.busy || !openDetail.p) return;
   const p=(S.feed||[]).find(x=>x.id===openDetail.id);
-  if(p && (p.status!==openDetail.p.status || p.commentCount!==openDetail.p.commentCount || p.hidden!==openDetail.p.hidden)) fillDetail(openDetail.el,p,true);
+  if(p && (p.status!==openDetail.p.status || p.commentCount!==openDetail.p.commentCount || p.hidden!==openDetail.p.hidden || p.storage!==openDetail.p.storage || p.storageDetail!==openDetail.p.storageDetail)) fillDetail(openDetail.el,p,true);
 }
 const navBack = `<div class="nav-bar"><button class="icon-btn" data-act="back" aria-label="뒤로">${IC.back}</button><h2></h2><span style="width:44px"></span></div>`;
 async function showPost(id){
@@ -1253,16 +1285,17 @@ async function fillDetail(el,p,soft=false){
       <div><dt>${found?"주운 곳":"잃은 곳"}</dt><dd>${esc(p.place)}${p.floor&&!String(p.place).includes(p.floor)?` · ${esc(p.floor)}`:""}${p.placeDetail?` · ${esc(p.placeDetail)}`:""}</dd></div>
       <div><dt>날짜</dt><dd>${fmtDate(p.when)}</dd></div>
       <div><dt>분류</dt><dd>${esc(p.cat)}${p.color?` · ${esc(p.color)}`:""}</dd></div>
-      ${found?`<div><dt>보관</dt><dd>${esc(p.storage||"")}${p.status!=="done"?` <span style="color:var(--ink-3)">· ${daysSince(p.createdAt)?daysSince(p.createdAt)+"일째":"오늘부터"}</span>`:""}</dd></div>`:""}
+      ${found?`<div><dt>보관</dt><dd>${esc(storageLabel(p.storage,p.storageDetail))}${p.status!=="done"?` <span style="color:var(--ink-3)">· ${daysSince(p.createdAt)?daysSince(p.createdAt)+"일째":"오늘부터"}</span>`:""}</dd></div>`:""}
     </dl>
     ${p.loc?`<button class="minimap" id="minimap" data-act="view-map" data-id="${esc(p.id)}" aria-label="지도에서 위치 크게 보기"><span class="tag">${IC.pin.replace('<svg ','<svg style="width:14px;height:14px" ')}지도에서 보기</span></button>`:""}
     ${p.desc?`<p class="desc">${esc(p.desc)}</p>`:""}
-    ${found&&p.storage==="행정실 분실물함"&&p.status!=="done"&&!p.mine?`<p class="note box" style="margin-top:16px">행정실에서 바로 받을 수 있어요. 내 물건이라는 걸 알 수 있게 특징을 말해 주세요.</p>`:""}
+    ${found&&p.status!=="done"&&!p.mine&&storageGuide(p.storage)?`<p class="note box" style="margin-top:16px">${esc(storageGuide(p.storage))}</p>`:""}
+    ${found&&p.status!=="done"&&p.mine&&(p.storage==="내가 갖고 있어요"||p.storage==="내가 보관 중")&&daysSince(p.createdAt)>=1?`<p class="note box" style="margin-top:16px">하루가 지났어요. 연락이 없으면 행정실에 맡기고 ⋯ 메뉴에서 보관 장소를 바꿔 주세요.</p>`:""}
     <div id="revealOut"></div>
     ${matches.length?`<h3 class="section-h">${IC.spark}${found?"이 물건을 찾는 글":"비슷한 습득물"}</h3>
       <div class="hscroll">${matches.map(({o,s})=>itemHTML(o,`<span class="match-score">${Math.round(s*100)}% 비슷해요</span>`)).join("")}</div>`:""}
     <h3 class="section-h">댓글 <span class="count">${comments.length||""}</span></h3>
-    <div class="comments">${comments.length?comments.map(c=>`<div class="cmt">${c.nick?avatarHTML(c.nick,c.av,32):`<div class="avatar ${c.isOwner?"owner":""}">${IC.user}</div>`}<div><div class="cmt-h"><b>${c.nick?esc(c.nick):(c.isOwner?"작성자":"익명")}</b>${c.nick&&c.isOwner?`<span class="pill found" style="height:20px;font-size:11px;padding:0 6px">작성자</span>`:""}${c.mine?`<span>나</span>`:""}<span>${ago(c.at)}</span></div><p>${esc(c.text)}</p></div></div>`).join(""):`<p class="note">궁금한 점을 남겨 보세요.</p>`}</div>
+    <div class="comments">${comments.length?comments.map(c=>`<div class="cmt">${c.nick?avatarHTML(c.nick,c.av,32,c.ph):`<div class="avatar ${c.isOwner?"owner":""}">${IC.user}</div>`}<div><div class="cmt-h"><b>${c.nick?esc(c.nick):(c.isOwner?"작성자":"익명")}</b>${c.nick&&c.isOwner?`<span class="pill found" style="height:20px;font-size:11px;padding:0 6px">작성자</span>`:""}${c.mine?`<span>나</span>`:""}<span>${ago(c.at)}</span></div><p>${esc(c.text)}</p></div></div>`).join(""):`<p class="note">궁금한 점을 남겨 보세요.</p>`}</div>
     <form class="composer" id="cform"><button type="button" class="who-btn press" id="whoBtn"></button><label class="sr" for="ctext">댓글</label><textarea id="ctext" rows="1" maxlength="300" placeholder="댓글 달기"></textarea><button class="send press" type="submit" aria-label="댓글 보내기" disabled>${IC.send}</button></form>
     <div class="bottom-cta"><div class="in">${p.mine
       ? (p.status==="done" ? `<button class="btn press" data-act="reopen" data-id="${esc(p.id)}">다시 ${found?"보관 중":"찾는 중"}으로 바꾸기</button>`
@@ -1273,7 +1306,7 @@ async function fillDetail(el,p,soft=false){
   if(p.loc) drawMiniMap($("#minimap",el), p.loc);
   const ta=$("#ctext",el), send=$("#cform .send",el);
   const who=$("#whoBtn",el), paintWho=()=>{ who.setAttribute("aria-pressed",prefs.showNick); who.setAttribute("aria-label",prefs.showNick?"별명으로 댓글 달기, 눌러서 익명으로 바꾸기":"익명으로 댓글 달기, 눌러서 별명으로 바꾸기");
-    who.innerHTML = prefs.showNick ? `${avatarHTML(S.me?.nickname,S.me?.avatar,28)}<span>${esc(S.me?.nickname||"")}</span>` : `<span class="anon">${IC.mask}</span><span>익명</span>`; };
+    who.innerHTML = prefs.showNick ? `${avatarHTML(S.me?.nickname,S.me?.avatar,28,S.me?.photo)}<span>${esc(S.me?.nickname||"")}</span>` : `<span class="anon">${IC.mask}</span><span>익명</span>`; };
   who.onclick=()=>{ prefs.showNick=!prefs.showNick; haptic(); paintWho(); };
   paintWho();
   ta.addEventListener("input",()=>{ send.disabled=!ta.value.trim(); ta.style.height="40px"; ta.style.height=Math.min(120,ta.scrollHeight)+"px"; });
@@ -1289,6 +1322,7 @@ function postMenu(id){
   const p=(S.feed||[]).find(x=>x.id===id)||openDetail?.p; if(!p) return;
   const admin=S.me?.isAdmin, items=[];
   items.push(`<button class="choice" data-m="share">${IC.share}링크 공유</button>`);
+  if(p.mine && p.type==="found" && p.status!=="done") items.push(`<button class="choice" data-m="storage">${IC.inbox}보관 장소 바꾸기</button>`);
   if(!p.mine) items.push(`<button class="choice" data-m="report">${IC.flag}신고하기</button>`);
   if(admin){ items.push(`<button class="choice" data-m="reveal">${IC.key}작성자 확인</button>`); items.push(`<button class="choice" data-m="hide">${p.hidden?IC.eye:IC.eyeOff}${p.hidden?"숨김 풀기":"숨기기"}</button>`); }
   if(p.mine||admin) items.push(`<button class="choice danger" data-m="delete">${IC.trash}글 삭제</button>`);
@@ -1296,11 +1330,22 @@ function postMenu(id){
     sh.querySelectorAll("[data-m]").forEach(b=>b.onclick=async()=>{
       const m=b.dataset.m; close(); await new Promise(r=>setTimeout(r,80));
       if(m==="share") sharePost(p);
+      if(m==="storage") changeStorage(p);
       if(m==="report") pickSheet("신고하는 이유","관리자가 확인하고 처리해요. 신고한 사람은 알려지지 않아요.",["장난·거짓 글","욕설·비하","개인정보 노출","기타"],"신고하기",async(r,c)=>{ await store.report(id,r); c(); toast("신고했어요"); });
       if(m==="delete") confirmSheet("글을 지울까요?","지운 글과 댓글은 되돌릴 수 없어요.","삭제",async()=>{ await store.deletePost(id); toast("삭제했어요"); setTimeout(back,360); },true);
       if(m==="reveal") pickSheet("작성자 확인","누가, 언제, 왜 확인했는지 기록에 남고 지울 수 없어요. 꼭 필요할 때만 확인해 주세요.",["장난·허위 글 확인","물건 전달 중재","분실물 분쟁","기타 안전 문제"],"확인하기",async(r,c)=>{ const who=await store.adminReveal(id,r); c(); const out=openDetail?.el&&$("#revealOut",openDetail.el); if(out) out.innerHTML=`<div class="reveal">작성자 ${esc(who.studentId)} ${esc(who.name)}</div>`; });
       if(m==="hide"){ try{ await store.adminHide(id,!p.hidden); toast(p.hidden?"다시 보이게 했어요":"숨겼어요"); }catch(e){ showError(e); } }
     });
+  });
+}
+function changeStorage(p){
+  let st=STORAGE_INFO[p.storage]?p.storage:(p.storage==="교무실"?"선생님께 맡김":p.storage==="내가 보관 중"?"내가 갖고 있어요":STORAGES[0]), det=p.storageDetail||"";
+  openSheet(`<h3>보관 장소 바꾸기</h3><p>물건을 옮겼다면 바꿔 주세요. 찾는 사람이 헛걸음하지 않아요.</p><div id="stBox" class="field"></div><p class="err" id="stErr" hidden></p><div class="actions"><button class="btn primary block" id="ok">저장</button></div>`,(sh,close)=>{
+    const paint=()=>{ $("#stBox",sh).innerHTML=storageFieldHTML(st,det); $("#stDetail",sh)?.addEventListener("input",e=>det=e.target.value);
+      sh.querySelectorAll("[data-st]").forEach(b=>b.onclick=()=>{ if(st!==b.dataset.st){ st=b.dataset.st; det=""; } paint(); $("#stDetail",sh)?.focus(); }); };
+    paint();
+    $("#ok",sh).onclick=async()=>{ if(STORAGE_INFO[st].need && !det.trim()){ const e=$("#stErr",sh); e.textContent="어느 선생님께 맡겼는지 적어 주세요"; e.hidden=false; return; }
+      $("#ok",sh).disabled=true; try{ await store.updateStorage(p.id,st,det.trim().slice(0,30)); close(); toast("보관 장소를 바꿨어요"); }catch(e){ $("#ok",sh).disabled=false; showError(e); } };
   });
 }
 async function resolveFlow(pid){
@@ -1322,12 +1367,12 @@ async function resolveFlow(pid){
    ========================================================= */
 function showNew(){
   const draft=ls.get("lf-draft2",{});
-  const f={type:S.type,title:"",cat:"",catAuto:true,place:"",floor:"",loc:null,when:today(),storage:STORAGES[0],desc:"",...draft,photo:null,ai:null,aiBusy:false};
+  const f={type:S.type,title:"",cat:"",catAuto:true,place:"",floor:"",loc:null,when:today(),storage:STORAGES[0],storageDetail:"",desc:"",...draft,photo:null,ai:null,aiBusy:false};
   let descOpen=!!f.desc, pickDate=![today(),dayStr(1),dayStr(2)].includes(f.when);
   const el=openLayer(`<div class="newpost"></div>`,{up:true,onClose:()=>{ if(f.photo?.url) setTimeout(()=>URL.revokeObjectURL(f.photo.url),400); }});
   const saveDraft=()=>{ const {photo,ai,aiBusy,...rest}=f; ls.set("lf-draft2",rest); };
   const g=id=>$("#"+id,el);
-  const sync=()=>{ if(g("title")) f.title=g("title").value; if(g("place")) f.place=g("place").value; if(g("desc")) f.desc=g("desc").value; if(g("when")) f.when=g("when").value||today(); saveDraft(); };
+  const sync=()=>{ if(g("title")) f.title=g("title").value; if(g("place")) f.place=g("place").value; if(g("stDetail")) f.storageDetail=g("stDetail").value; if(g("desc")) f.desc=g("desc").value; if(g("when")) f.when=g("when").value||today(); saveDraft(); };
   const canPhoto = store.mode==="demo" || !!CONFIG.workerUrl;
   const autoCat=()=>{ if(!f.catAuto) return; const t=guessTags(f.title+" "+f.desc); f.cat = t.cat || (f.ai?.cat) || ""; };
   let aiRun=0;
@@ -1369,7 +1414,7 @@ function showNew(){
         <div class="field"><div class="label">언제요?</div>
           <div class="chips-wrap">${dates.map(([l,v])=>`<button type="button" class="mini-chip press" data-d="${v}" aria-pressed="${!pickDate&&f.when===v}">${l}</button>`).join("")}<button type="button" class="mini-chip press" data-d="pick" aria-pressed="${pickDate}">날짜 고르기</button></div>
           ${pickDate?`<input class="input" type="date" id="when" value="${esc(f.when)}" max="${today()}">`:""}</div>
-        ${found?`<div class="field"><div class="label">지금 어디에 있나요?</div><div class="chips-wrap">${STORAGES.map(s=>`<button type="button" class="mini-chip press" data-st="${s}" aria-pressed="${f.storage===s}">${s}</button>`).join("")}</div>${f.storage==="행정실 분실물함"?`<p class="note">행정실에 맡기면 주인이 바로 찾아갈 수 있어요.</p>`:""}</div>`:""}
+        ${found?`<div class="field"><div class="label">지금 어디에 있나요?</div>${storageFieldHTML(STORAGE_INFO[f.storage]?f.storage:STORAGES[0], f.storageDetail)}</div>`:""}
         ${descOpen?`<div class="field"><label class="label" for="desc">특징 <small>선택</small></label><textarea class="input" id="desc" maxlength="400" placeholder="${found?"주인만 아는 특징(스티커, 이니셜 등)은 빼 두면 진짜 주인인지 확인하기 좋아요":"스티커, 이니셜, 케이스 색처럼 알아볼 수 있는 특징"}">${esc(f.desc)}</textarea></div>`
           :`<button type="button" class="add-more" id="descBtn">${IC.plus}특징 적기 <span style="color:var(--ink-3);font-weight:500">선택</span></button>`}
         <p class="err" id="ferr" hidden></p>
@@ -1381,12 +1426,12 @@ function showNew(){
       else if(b.dataset.q){ sync(); const q=b.dataset.q; f.place = f.place.startsWith(q) ? f.place.slice(q.length).trim() : (q+" "+f.place.replace(new RegExp("^("+QUICK_PLACES.join("|")+")\\s*"),"")).trim(); saveDraft(); draw(); g("place").focus({preventScroll:true}); }
       else if(b.dataset.fl){ sync(); f.floor = f.floor===b.dataset.fl ? "" : b.dataset.fl; saveDraft(); draw(); }
       else if(b.dataset.d){ sync(); if(b.dataset.d==="pick"){ pickDate=true; } else { pickDate=false; f.when=b.dataset.d; } saveDraft(); draw(); if(pickDate) g("when")?.showPicker?.(); }
-      else if(b.dataset.st){ sync(); f.storage=b.dataset.st; saveDraft(); draw(); }
+      else if(b.dataset.st){ sync(); if(f.storage!==b.dataset.st){ f.storage=b.dataset.st; f.storageDetail=""; } saveDraft(); draw(); if(STORAGE_INFO[f.storage].need) g("stDetail")?.focus(); }
       else if(b.id==="descBtn"){ sync(); descOpen=true; draw(); g("desc").focus(); }
       else if(b.id==="mapClear"){ e.stopPropagation(); sync(); f.loc=null; saveDraft(); draw(); }
       else if(b.id==="mapBtn"){ sync(); openMapPicker({loc:f.loc,floor:f.floor,onDone:(loc,floor)=>{ f.loc=loc; if(floor!=null) f.floor=floor; saveDraft(); draw(); }}); } });
     let tt; g("title").addEventListener("input",()=>{ sync(); clearTimeout(tt); tt=setTimeout(()=>{ const before=f.cat; autoCat(); if(f.cat!==before) paintAI(); },250); });
-    g("place").addEventListener("input",sync); g("desc")?.addEventListener("input",()=>{ sync(); }); g("when")?.addEventListener("change",sync);
+    g("place").addEventListener("input",sync); g("stDetail")?.addEventListener("input",sync); g("desc")?.addEventListener("input",()=>{ sync(); }); g("when")?.addEventListener("change",sync);
     g("photo")?.addEventListener("change",async e=>{ const file=e.target.files?.[0]; if(!file) return; sync();
       if(file.type && !/^image\//.test(file.type)){ toast("사진 파일만 올릴 수 있어요"); return; }
       try{ const prev=f.photo?.url; f.photo=await compressImage(file); if(prev) URL.revokeObjectURL(prev); draw(); runAI(); }
@@ -1396,7 +1441,9 @@ function showNew(){
   let sending=false;
   const submit=async()=>{
     if(sending) return; sync();
-    const err=!f.title.trim()?["title","무엇인지 적어 주세요"]:!f.place.trim()?["place",`어디서 ${f.type==="found"?"주웠는지":"잃어버렸는지"} 적어 주세요`]:null;
+    if(!STORAGE_INFO[f.storage]) f.storage=STORAGES[0];
+    const err=!f.title.trim()?["title","무엇인지 적어 주세요"]:!f.place.trim()?["place",`어디서 ${f.type==="found"?"주웠는지":"잃어버렸는지"} 적어 주세요`]
+      :(f.type==="found"&&STORAGE_INFO[f.storage].need&&!f.storageDetail.trim())?["stDetail","어느 선생님께 맡겼는지 적어 주세요"]:null;
     const box=g("ferr"); if(err){ box.textContent=err[1]; box.hidden=false; g(err[0]).focus(); g(err[0]).scrollIntoView({block:"center",behavior:"smooth"}); haptic(20); return; }
     const btn=g("submitBtn"); sending=true; btn.disabled=true; haptic(12); btn.textContent=f.photo?"사진 올리는 중…":"올리는 중…";
     try{
@@ -1405,7 +1452,7 @@ function showNew(){
       const ai={keywords:(f.ai?.keywords?.length?f.ai.keywords:tags.keywords).slice(0,8)};
       const data={type:f.type,title:f.title.trim(),cat:f.cat||"기타",color:f.ai?.color||tags.color||"",place:f.place.trim().slice(0,30),placeDetail:"",floor:f.floor||"",when:f.when||today(),desc:(descOpen?f.desc:"").trim(),ai};
       if(f.loc) data.loc={lat:+f.loc.lat,lng:+f.loc.lng};
-      if(f.type==="found") data.storage=f.storage;
+      if(f.type==="found"){ data.storage=f.storage; const sd=f.storageDetail.trim().slice(0,30); if(sd) data.storageDetail=sd; }
       const id=await store.createPost(data,f.photo);
       ls.del("lf-draft2");
       S.type=f.type; S.cat="전체"; S.q="";
@@ -1552,7 +1599,7 @@ async function renderMe(app){
   const solved=mine.filter(p=>p.status==="done").length;
   const live=store.mode==="live";
   box.innerHTML=`
-    <div class="profile-h">${avatarHTML(S.me.nickname,S.me.avatar,64)}<div class="who"><b>${esc(S.me.nickname)}</b><span>${S.me.isAdmin?"관리자":"한백고 학생"}</span></div><button class="btn sm press" data-act="edit-profile">프로필 편집</button></div>
+    <div class="profile-h">${avatarHTML(S.me.nickname,S.me.avatar,64,S.me.photo)}<div class="who"><b>${esc(S.me.nickname)}</b><span>${S.me.isAdmin?"관리자":"한백고 학생"}</span></div><button class="btn sm press" data-act="edit-profile">프로필 편집</button></div>
     <div class="stat-row"><div><strong>${S.me.points}</strong>감사 포인트</div><div><strong>${mine.length}</strong>올린 글</div><div><strong>${solved}</strong>해결</div></div>
     ${!standalone()?`<div class="install-card">${markHTML(44,11)}<div><b>앱으로 설치하기</b><span>홈 화면에서 바로 열 수 있어요</span></div><button class="btn primary sm press" data-act="install">${inApp?"브라우저로":"설치"}</button></div>`:""}
     <h3 class="section-h">내가 올린 글 <span class="count">${mine.length||""}</span></h3>
@@ -1573,22 +1620,33 @@ async function renderMe(app){
 
 /* 프로필 편집: 별명(중복·금지어 확인) + 프로필 색 */
 function editProfile(){
-  let av=+S.me.avatar||0, nick=S.me.nickname;
+  let av=+S.me.avatar||0, nick=S.me.nickname, photo; // photo: undefined=그대로, null=지우기, {blob,url}=새 사진
+  const curPhoto=()=> photo===null ? "" : photo ? (photo.dataUrl||photo.url) : (S.me.photo||"");
+  const canPhoto = store.mode==="demo" || !!CONFIG.workerUrl;
   openSheet(`<h3>프로필 편집</h3>
-    <div style="display:flex;justify-content:center;margin:8px 0 18px" id="pvAv">${avatarHTML(nick,av,80)}</div>
+    <div style="display:grid;justify-items:center;gap:10px;margin:8px 0 18px">
+      <label class="press" style="position:relative;cursor:pointer;border-radius:50%" aria-label="프로필 사진 바꾸기"><span id="pvAv"></span>
+        ${canPhoto?`<span style="position:absolute;right:-2px;bottom:-2px;width:30px;height:30px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;box-shadow:0 0 0 3px var(--sheet)">${IC.camera.replace("<svg ",'<svg style="width:16px;height:16px" ')}</span><input type="file" id="pfPhoto" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer">`:""}</label>
+      <button class="link-btn" id="pfDel" type="button" hidden>사진 지우기</button>
+    </div>
     <div class="field"><label class="label" for="nick">별명 <small id="nickCount">${nick.length}/12</small></label>
       <input class="input" id="nick" maxlength="12" autocomplete="off" value="${esc(nick)}">
       <p class="hint" id="nickHint">다른 학생에게 보이는 이름이에요. 실명은 쓰지 않는 게 좋아요.</p></div>
-    <div class="field" style="margin-top:14px"><div class="label">색</div>
+    <div class="field" id="colorField" style="margin-top:14px"><div class="label">색 <small>사진이 없을 때 보여요</small></div>
       <div class="swatches">${AV_COLORS.map((c,i)=>`<button class="swatch press" data-av="${i}" aria-pressed="${i===av}" aria-label="색 ${i+1}" style="background:${c}">${IC.check}</button>`).join("")}</div></div>
-    <div class="actions" style="margin-top:24px"><button class="btn primary block" id="ok">저장</button></div>`,(sh,close)=>{
+    <p class="note" style="margin-top:14px">프로필 사진은 순위와 별명으로 단 댓글에 보여요. 얼굴 대신 좋아하는 사진을 써도 좋아요. 다른 사람이 불쾌할 사진은 관리자가 지울 수 있어요.</p>
+    <div class="actions" style="margin-top:20px"><button class="btn primary block" id="ok">저장</button></div>`,(sh,close)=>{
     const inp=$("#nick",sh), hint=$("#nickHint",sh), ok=$("#ok",sh);
-    const paint=()=>{ nick=inp.value; $("#pvAv",sh).innerHTML=avatarHTML(nick||"?",av,80); $("#nickCount",sh).textContent=`${nick.length}/12`;
+    const paint=()=>{ nick=inp.value; $("#pvAv",sh).innerHTML=avatarHTML(nick||"?",av,88,curPhoto()); $("#nickCount",sh).textContent=`${nick.length}/12`;
+      $("#pfDel",sh).hidden=!curPhoto();
       const pr=nickProblem(nick); hint.textContent=pr||(nick.trim()===S.me.nickname?"지금 쓰고 있는 별명이에요":"쓸 수 있는지 저장할 때 확인해요"); hint.className="hint"+(pr?" bad":""); ok.disabled=!!pr; };
     inp.addEventListener("input",paint);
     sh.querySelectorAll("[data-av]").forEach(b=>b.onclick=()=>{ av=+b.dataset.av; sh.querySelectorAll("[data-av]").forEach(x=>x.setAttribute("aria-pressed",x===b)); paint(); });
-    ok.onclick=async()=>{ const pr=nickProblem(nick); if(pr) return; ok.disabled=true; ok.textContent="저장하는 중…";
-      try{ await store.updateProfile(nick.trim(),av); S.me={...S.me,nickname:nick.trim(),avatar:av}; haptic(); close(); toast("프로필을 바꿨어요"); setTimeout(()=>{ if(S.tab==="me") render(); },340); }
+    $("#pfPhoto",sh)?.addEventListener("change",async e=>{ const file=e.target.files?.[0]; if(!file) return;
+      try{ photo=await squareImage(file); paint(); }catch{ toast("이 사진은 열 수 없어요"); } });
+    $("#pfDel",sh).onclick=()=>{ photo=null; paint(); };
+    ok.onclick=async()=>{ const pr=nickProblem(nick); if(pr) return; ok.disabled=true; ok.textContent=photo?"사진 올리는 중…":"저장하는 중…";
+      try{ const ph=await store.updateProfile(nick.trim(),av,photo); S.me={...S.me,nickname:nick.trim(),avatar:av,photo:ph}; haptic(); close(); toast("프로필을 바꿨어요"); setTimeout(()=>{ if(S.tab==="me") render(); },340); }
       catch(e){ ok.disabled=false; ok.textContent="저장"; hint.textContent=friendly(e); hint.className="hint bad"; } };
     paint();
   });
@@ -1597,7 +1655,7 @@ async function showRanking(){
   const {sh}=openSheet(`<h3>착한 습득왕</h3><p>물건을 돌려주면 글쓴이가 감사 요청을 보내고, 관리자가 확인하면 ${CONFIG.rewardPoints}점이 쌓여요.</p><div class="rank" id="rk"><div class="skel" style="height:48px;border-radius:10px"></div></div>`);
   const board=await store.leaderboard().catch(()=>[]);
   const rk=$("#rk",sh); if(!rk) return;
-  rk.innerHTML=board.length?board.map((u,i)=>`<div class="${u.you?"me":""}" style="grid-template-columns:24px 32px 1fr auto"><span class="n">${i+1}</span>${avatarHTML(u.nickname,u.avatar,28)}<b style="font-weight:${u.you?700:550}">${esc(u.nickname)}${u.you?" (나)":""}</b><span>${u.points}점</span></div>`).join(""):`<p class="note">아직 기록이 없어요.</p>`;
+  rk.innerHTML=board.length?board.map((u,i)=>`<div class="${u.you?"me":""}" style="grid-template-columns:24px 32px 1fr auto"><span class="n">${i+1}</span>${avatarHTML(u.nickname,u.avatar,28,u.photo)}<b style="font-weight:${u.you?700:550}">${esc(u.nickname)}${u.you?" (나)":""}</b><span>${u.points}점</span></div>`).join(""):`<p class="note">아직 기록이 없어요.</p>`;
 }
 function showAccount(){
   const uid=S.me.uid, masked=uid.slice(0,4)+"•".repeat(Math.max(4,uid.length-8))+uid.slice(-4);
