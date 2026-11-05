@@ -200,11 +200,12 @@ const CONFIG = {
     messagingSenderId: "1047621074814",
     appId: "1:1047621074814:web:b9ac8895d7f8f86ecd7d2f"
   },
-  workerUrl: "",         // Cloudflare 설정 후 채우기. 비어 있으면 사진·AI 서버 기능만 꺼져요
+  workerUrl: "https://lostfound-api.peakhohihi1988.workers.dev",  // 끝에 / 붙이지 않기
   schoolName: "한백고",
   rewardPoints: 10
 };
 
+CONFIG.workerUrl = (CONFIG.workerUrl||"").replace(/\/+$/,"");
 /* ---------- 공통 상수 ---------- */
 const CATS = ["전자기기","의류","학용품","지갑·카드","물병·텀블러","가방","기타"];
 const COLORS = [["검정","#1d1f22"],["흰색","#f7f7f7"],["회색","#9aa0a6"],["남색","#23345f"],["파랑","#2f6fe0"],["빨강","#d33b3b"],["초록","#2f9e5b"],["노랑","#f2c94c"],["갈색","#8a5a36"],["분홍","#f29bb8"],["기타","conic-gradient(#d33b3b,#f2c94c,#2f9e5b,#2f6fe0,#d33b3b)"]];
