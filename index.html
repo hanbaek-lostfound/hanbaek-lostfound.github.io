@@ -534,12 +534,27 @@ function headerHTML(){
   </div>`;
 }
 
+/* 오류 안내: Firestore 색인이 없으면 만들기 링크를 화면에 띄워요 (폰에서도 누를 수 있게) */
+function indexLink(e){ const m=String(e?.message||"").match(/https:\/\/console\.firebase\.google\.com\S+/); return m?m[0].replace(/[).,]+$/,""):null; }
+function errorHTML(e){
+  const link=indexLink(e);
+  return link
+    ? `<div class="empty" style="margin-top:12px"><b>데이터베이스 색인을 만들어야 해요</b>처음 한 번만 필요해요. 아래 버튼을 눌러 Firebase에서 <b style="display:inline;font-size:inherit;font-family:inherit">색인 만들기(저장)</b>를 누른 뒤, 3~5분 기다렸다가 새로고침해 주세요.<br><br><a class="btn accent" href="${esc(link)}" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none">색인 만들기</a></div>`
+    : `<div class="empty" style="margin-top:12px"><b>불러오지 못했어요</b>오류: ${esc(e?.code||e?.message||"알 수 없음")}<br>잠시 뒤 새로고침해 주세요.</div>`;
+}
+function showError(e){
+  console.warn(e);
+  if(indexLink(e)) sheet(`<h3>색인이 필요해요</h3>${errorHTML(e)}<button class="btn ghost" id="cancel">닫기</button>`,(L,close)=>{ $("#cancel",L).onclick=close; });
+  else toast(e?.message?.length>60 ? "오류: "+(e.code||"알 수 없음") : (e?.message||"문제가 생겼어요"));
+}
 async function render(){
   $("#nav").hidden=false; renderNav();
   const app=$("#app");
-  if(S.tab==="found"||S.tab==="lost") return renderFeed(app);
-  if(S.tab==="me") return renderMe(app);
-  if(S.tab==="admin") return renderAdmin(app);
+  try{
+    if(S.tab==="found"||S.tab==="lost") return await renderFeed(app);
+    if(S.tab==="me") return await renderMe(app);
+    if(S.tab==="admin") return await renderAdmin(app);
+  }catch(e){ console.warn(e); app.innerHTML = headerHTML() + errorHTML(e); }
 }
 
 async function renderFeed(app){
@@ -639,7 +654,7 @@ async function showPost(id){
     <div class="comments">${comments.map(c=>`<div class="cmt"><div class="cmt-head"><b class="${c.isOwner?"owner":""}">${c.isOwner?"작성자":"익명"}${c.mine?" (나)":""}</b><span>${ago(c.at)}</span></div><p>${esc(c.text)}</p></div>`).join("")||`<div class="hint">첫 댓글을 남겨 보세요.</div>`}</div>
     <form class="composer" id="cform"><label class="sr" for="ctext">댓글</label><textarea id="ctext" rows="1" maxlength="300" placeholder="혹시 스티커 붙어 있나요?"></textarea><button class="btn primary small" type="submit">등록</button></form>`);
   $("#cform").addEventListener("submit",async e=>{ e.preventDefault(); const t=$("#ctext").value.trim(); if(!t) return; if(/\d{2,3}-?\d{3,4}-?\d{4}/.test(t)){ toast("전화번호는 댓글 대신 1:1 대화로 보내 주세요"); return; }
-    try{ await store.addComment(id,t); showPost(id);}catch(err){toast(err.message);} });
+    try{ await store.addComment(id,t); showPost(id);}catch(err){showError(err);} });
 }
 
 /* ---------- 패널: 새 글 ---------- */
@@ -693,7 +708,7 @@ function showNew(type="found"){
 
 /* ---------- 패널: 1:1 대화 ---------- */
 async function showChat(id){
-  let c; try{ c=await store.getChat(id);}catch(e){ toast(e.message); return; }
+  let c; try{ c=await store.getChat(id);}catch(e){ showError(e); return; }
   if(!c){ toast("대화를 찾을 수 없어요"); return; }
   S.view={kind:"chat",id};
   const myRole=c.role, canSend = myRole==="starter"||myRole==="owner";
@@ -740,12 +755,12 @@ document.addEventListener("click",async e=>{
     if(a==="tab"){ S.tab=b.dataset.tab; S.cat="전체"; S.q=""; window.scrollTo(0,0); render(); }
     else if(a==="cat"){ S.cat=b.dataset.cat; render(); }
     else if(a==="new"){ showNew(S.tab==="lost"?"lost":"found"); }
-    else if(a==="open"){ showPost(id); }
+    else if(a==="open"){ await showPost(id); }
     else if(a==="close"){ closePanel(); }
     else if(a==="focus-comment"){ $("#ctext")?.focus(); $("#ctext")?.scrollIntoView({block:"center",behavior:"smooth"}); }
     else if(a==="start-chat"){ const cid=await store.openChat(id); showChat(cid); }
-    else if(a==="chat"){ showChat(id); }
-    else if(a==="resolve"){ resolveFlow(id); }
+    else if(a==="chat"){ await showChat(id); }
+    else if(a==="resolve"){ await resolveFlow(id); }
     else if(a==="reopen"){ await store.setStatus(id,"open"); toast("다시 열었어요"); showPost(id); }
     else if(a==="delete"){ confirmSheet("글을 지울까요?","지운 글과 댓글은 되돌릴 수 없어요.","삭제",async()=>{ await store.deletePost(id); toast("삭제했어요"); closePanel(); },true); }
     else if(a==="report"){
@@ -759,7 +774,7 @@ document.addEventListener("click",async e=>{
     else if(a==="reward-ok"||a==="reward-no"){ await store.adminDecideReward(id,a==="reward-ok"); toast(a==="reward-ok"?"포인트를 지급했어요":"반려했어요"); render(); }
     else if(a==="reset"){ confirmSheet("체험 데이터를 되돌릴까요?","이 기기에 저장된 체험용 글과 대화가 처음 상태로 돌아가요.","되돌리기",async()=>{ await store.resetDemo(); S.me=await store.me(); S.tab="found"; render(); }); }
     else if(a==="logout"){ await store.signOut(); location.reload(); }
-  }catch(err){ toast(err.message||"문제가 생겼어요"); }
+  }catch(err){ showError(err); }
 });
 document.addEventListener("change",async e=>{ if(e.target.id==="demoUser"){ await store.switchUser(e.target.value); S.me=await store.me(); if(S.tab==="admin"&&!S.me.isAdmin) S.tab="found"; toast(`${e.target.selectedOptions[0].text}(으)로 바꿨어요`); render(); } });
 document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ const s=$(".scrim"); if(s) s.remove(); else if($("#layer").innerHTML) closePanel(); } });
