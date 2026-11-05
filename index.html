@@ -1,8 +1,18 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>한백 분실물 알리미</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#14202b">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
 <style>
 /* 레이아웃: 휴대폰 한 손 사용 기준 단일 열 앱, 하단 탭바 고정, 데스크톱에선 가운데 560px */
@@ -168,8 +178,10 @@ dl.info dd{margin:0;min-width:0;overflow-wrap:anywhere}
 .toast{position:fixed;left:50%;bottom:calc(var(--nav-h) + 16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:90;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;max-width:calc(100% - 32px);box-shadow:0 6px 20px rgba(0,0,0,.2)}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+html,body{margin:0}
 </style>
-
+</head>
+<body>
 <div class="app" id="app" aria-live="polite"></div>
 <nav class="nav" id="nav" aria-label="메뉴"></nav>
 <div id="layer"></div>
@@ -523,7 +535,7 @@ function headerHTML(){
 }
 
 async function render(){
-  renderNav();
+  $("#nav").hidden=false; renderNav();
   const app=$("#app");
   if(S.tab==="found"||S.tab==="lost") return renderFeed(app);
   if(S.tab==="me") return renderMe(app);
@@ -754,7 +766,7 @@ document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ const s=$(".scrim
 
 /* ---------- 로그인 화면 (실제 서버 모드) ---------- */
 function renderGate(needsProfile){
-  $("#nav").innerHTML="";
+  $("#nav").innerHTML=""; $("#nav").hidden=true;
   $("#app").innerHTML=`<div class="top"><div class="brand"><h1>분실물 알리미<small>${esc(CONFIG.schoolName)} 전교생이 함께 찾아요</small></h1></div></div>
   <div class="me-card" style="margin-top:20px">
     ${needsProfile?`<b>처음 한 번만 학번을 등록해요</b><p class="hint" style="margin:0">학번과 이름은 관리자만 볼 수 있어요. 다른 학생에게는 랜덤 별명으로만 보여요. 장난 글을 막기 위한 장치예요.</p>
@@ -765,7 +777,7 @@ function renderGate(needsProfile){
   $("#login")?.addEventListener("click",async()=>{ try{ await store.signIn(); boot(); }catch(e){ console.warn(e); toast(/unauthorized-domain/.test(e.code||"")?"이 주소가 Firebase 승인된 도메인에 없어요":"로그인하지 못했어요"); } });
   $("#pform")?.addEventListener("submit",async e=>{ e.preventDefault(); const sid=$("#sid").value.trim(), nm=$("#sname").value.trim(); const er=$("#perr");
     if(!/^\d{5}$/.test(sid)||!nm){ er.textContent="학번 5자리와 이름을 적어 주세요"; er.hidden=false; return; }
-    try{ await store.saveProfile(sid,nm); boot(); }catch{ er.textContent="저장하지 못했어요. 다시 시도해 주세요"; er.hidden=false; } });
+    try{ await store.saveProfile(sid,nm); boot(); }catch(e){ console.warn(e); er.textContent="저장하지 못했어요 · 오류: "+(e.code||e.message||"알 수 없음"); er.hidden=false; } });
 }
 
 async function boot(){
@@ -773,7 +785,8 @@ async function boot(){
     if(CONFIG.firebase){ try{ store=new FireStore(); await store.init(); }catch(e){ console.warn("서버 연결 실패, 체험 모드로 실행",e); store=new DemoStore(); } }
     else store=new DemoStore();
   }
-  S.me = await store.me();
+  try{ S.me = await store.me(); }
+  catch(e){ console.warn(e); $("#app").innerHTML=`<div class="empty" style="margin-top:24px"><b>서버에 연결하지 못했어요</b>오류: ${esc(e.code||e.message||"알 수 없음")}<br>잠시 뒤 새로고침해 주세요.</div>`; return; }
   if(store.mode==="live"){ store._me=S.me; if(!S.me) return renderGate(false); if(S.me.needsProfile) return renderGate(true); }
   render();
 }
@@ -782,3 +795,5 @@ boot();
 /* 설치형 앱(PWA): GitHub Pages 같은 실제 주소에서만 등록됩니다 */
 if("serviceWorker" in navigator && location.protocol==="https:" && CONFIG.firebase){ navigator.serviceWorker.register("sw.js").catch(()=>{}); }
 </script>
+</body>
+</html>
